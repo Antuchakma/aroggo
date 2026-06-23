@@ -1,0 +1,244 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum ConnectionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  password     String
+  name         String
+  role         Role
+  isApproved   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  doctor               Doctor?
+  patient              Patient?
+  sentNotifications    Notification[] @relation("NotificationSender")
+  receivedNotifications Notification[] @relation("NotificationReceiver")
+  chatMessages         ChatMessage[]
+}
+
+model Doctor {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  bio         String?
+  licenseNo   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialties        DoctorSpecialty[]
+  hospitalHistory    DoctorHospitalHistory[]
+  degrees            DoctorDegree[]
+  achievements       DoctorAchievement[]
+  patients           DoctorPatient[]
+  appointments       Appointment[]
+  prescriptions      Prescription[]
+  connectionRequests AppointmentRequest[]
+  healthMetrics      HealthMetric[]
+}
+
+model DoctorSpecialty {
+  id        String @id @default(cuid())
+  doctorId  String
+  name      String
+  doctor    Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+model DoctorHospitalHistory {
+  id        String  @id @default(cuid())
+  doctorId  String
+  hospital  String
+  from      String
+  to        String?
+  doctor    Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+model DoctorDegree {
+  id        String @id @default(cuid())
+  doctorId  String
+  degree    String
+  institute String
+  year      String
+  doctor    Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+model DoctorAchievement {
+  id        String @id @default(cuid())
+  doctorId  String
+  title     String
+  year      String?
+  doctor    Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+model Patient {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  dateOfBirth DateTime?
+  bloodGroup  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  doctors            DoctorPatient[]
+  appointments       Appointment[]
+  prescriptions      Prescription[]
+  medicalReports     MedicalReport[]
+  medicalHistory     PatientMedicalHistory[]
+  healthMetrics      HealthMetric[]
+  connectionRequests AppointmentRequest[]
+}
+
+model AppointmentRequest {
+  id        String          @id @default(cuid())
+  doctorId  String
+  patientId String
+  status    ConnectionStatus @default(PENDING)
+  createdAt DateTime        @default(now())
+
+  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model DoctorPatient {
+  id        String   @id @default(cuid())
+  doctorId  String
+  patientId String
+  connectedAt DateTime @default(now())
+
+  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, patientId])
+}
+
+model Appointment {
+  id          String            @id @default(cuid())
+  doctorId    String
+  patientId   String
+  scheduledAt DateTime
+  status      AppointmentStatus @default(PENDING)
+  notes       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model Medicine {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  description  String?
+  createdAt    DateTime @default(now())
+
+  prescriptionMedicines PrescriptionMedicine[]
+}
+
+model Prescription {
+  id        String   @id @default(cuid())
+  doctorId  String
+  patientId String
+  notes     String?
+  createdAt DateTime @default(now())
+
+  doctor    Doctor                 @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient   Patient                @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  medicines PrescriptionMedicine[]
+}
+
+model PrescriptionMedicine {
+  id             String @id @default(cuid())
+  prescriptionId String
+  medicineId     String
+  dosage         String
+  frequency      String
+  duration       String
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  medicine     Medicine     @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+}
+
+model MedicalReport {
+  id            String   @id @default(cuid())
+  patientId     String
+  fileName      String
+  filePath      String
+  extractedText String?
+  metrics       Json?
+  createdAt     DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model PatientMedicalHistory {
+  id        String   @id @default(cuid())
+  patientId String
+  condition String
+  since     String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model HealthMetric {
+  id          String   @id @default(cuid())
+  patientId   String
+  doctorId    String?
+  metricType  String
+  value       Float
+  unit        String
+  recordedAt  DateTime @default(now())
+
+  patient Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor  Doctor?  @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  senderId   String?
+  receiverId String
+  type       String
+  message    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  sender   User? @relation("NotificationSender", fields: [senderId], references: [id], onDelete: SetNull)
+  receiver User  @relation("NotificationReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+}

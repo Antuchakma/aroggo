@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"Remember to update PROJECT_UPDATES.md with any work done or completed this turn.\"}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
